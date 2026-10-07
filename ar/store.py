@@ -51,9 +51,28 @@ class SupabaseStore:
         rows = self.select("profiles", eq={"id": res.user.id})
         return rows[0] if rows else None
 
-    def sign_out(self):
+    def restore(self, token: str) -> dict | None:
+        """Log back in from a remembered refresh token. None if it has expired or was revoked."""
         try:
-            self.client.auth.sign_out()
+            res = self.client.auth.refresh_session(token)
+        except Exception:
+            return None
+        if not res or not res.user:
+            return None
+        rows = self.select("profiles", eq={"id": res.user.id})
+        return rows[0] if rows else None
+
+    def current_token(self) -> str | None:
+        """The live refresh token (it changes each time Supabase refreshes the login)."""
+        try:
+            s = self.client.auth.get_session()
+            return s.refresh_token if s else None
+        except Exception:
+            return None
+
+    def sign_out(self):
+        try:  # "local" ends only this device's login, not Papa's other devices or Selective Brain
+            self.client.auth.sign_out({"scope": "local"})
         except Exception:
             pass
 
@@ -138,11 +157,21 @@ class LocalStore:
     def sign_in(self, email, password):
         for p in self._read()["profiles"]:
             if p.get("email") == email:
+                self._who = email
                 return p
         return None
 
+    def restore(self, token):
+        if token and token.startswith("demo:"):
+            return self.sign_in(token[5:], "")
+        return None
+
+    def current_token(self):
+        who = getattr(self, "_who", None)
+        return f"demo:{who}" if who else None
+
     def sign_out(self):
-        pass
+        self._who = None
 
     # --- tables ---
     @staticmethod
