@@ -190,8 +190,17 @@ class LocalStore:
 
 
 # ----------------------------------------------------------------------------
+def demo_allowed() -> bool:
+    """Demo mode is OFF unless explicitly switched on for local testing:
+    PowerShell: $env:AR_DEMO="1"; streamlit run app.py"""
+    return os.environ.get("AR_DEMO") == "1"
+
+
 def get_store():
-    """One store per browser session (Supabase auth token lives on the client)."""
+    """One store per browser session (Supabase auth token lives on the client).
+
+    Returns None when Supabase secrets are missing and demo mode is off; app.py then
+    shows a setup message instead of silently running on a throwaway local file."""
     if "store" not in st.session_state:
         url = key = None
         try:
@@ -201,7 +210,9 @@ def get_store():
             pass
         if url and key:
             st.session_state.store = SupabaseStore(url, key)
-        else:
+        elif demo_allowed():
             path = Path(__file__).resolve().parent.parent / ".demo_data.json"
             st.session_state.store = LocalStore(str(path))
+        else:
+            return None
     return st.session_state.store

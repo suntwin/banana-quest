@@ -9,6 +9,14 @@ from ar.store import get_store  # noqa: E402
 
 style.apply()
 store = get_store()
+if store is None:
+    st.markdown('<div class="ar-hero" style="text-align:center"><div style="font-size:56px">🍌</div>'
+                '<h1>Banana Quest</h1><div class="sub">Almost ready!</div><div class="band">Setup needed</div></div>',
+                unsafe_allow_html=True)
+    st.error("Supabase isn't connected yet. In Streamlit Cloud open **Manage app → Settings → Secrets** and add:\n\n"
+             "```toml\nSUPABASE_URL = \"https://xxxx.supabase.co\"\nSUPABASE_ANON_KEY = \"eyJ...\"\n```\n\n"
+             "Then save. The app restarts by itself.")
+    st.stop()
 
 
 def login():

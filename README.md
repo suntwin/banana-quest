@@ -61,7 +61,16 @@ venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
-Without `.streamlit/secrets.toml` the app runs in **demo mode**: two buttons (Aadiv / Papa), with data stored in `.demo_data.json`.
+Without Supabase secrets the app stops with a "Supabase isn't connected yet" message, so it never runs on throwaway local data.
+To try it offline with fake data, switch demo mode on explicitly in PowerShell:
+```
+$env:AR_DEMO="1"
+streamlit run app.py
+```
+Demo mode shows two buttons (Aadiv / Papa) and stores data in `.demo_data.json`.
+
+## Test user
+`supabase/seed_test_family.sql` creates a separate **Test family** with a test kid and a test parent, so someone can try both sides without touching Aadiv's XP. First add `testkid@example.com` and `testparent@example.com` in Authentication → Users (tick Auto Confirm), then run the script. Delete the family afterwards with the line at the bottom of the script.
 
 ## Files
 - `app.py`: login and navigation (child: Home, Log it!, Reward Shop, Trophy Room; parent: Parent Hub plus the same views)

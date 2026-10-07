@@ -30,7 +30,7 @@ def render():
         '</div>', unsafe_allow_html=True)
     st.write("")
     tabs = st.tabs([f"✅ To approve ({len(pend)})", f"🎁 Rewards ({len(reqs)})", "📺 Screen time",
-                    "📊 This week", "🎉 Bonus XP", "⚙️ Settings"])
+                    "📊 This week", "🎉 Bonus XP", "💡 Tips", "⚙️ Settings"])
     with tabs[0]:
         _approvals(pend)
     with tabs[1]:
@@ -42,6 +42,8 @@ def render():
     with tabs[4]:
         _bonus()
     with tabs[5]:
+        _tips()
+    with tabs[6]:
         _settings()
 
 
@@ -139,6 +141,14 @@ def _reward_form(r):
                 data.save_reward({"id": r.get("id"), "emoji": emoji.strip() or "🎁", "name": name.strip(),
                                   "cost": int(cost), "description": desc.strip(), "active": active})
                 st.rerun()
+    if r.get("id"):
+        c1, c2 = st.columns([2, 1])
+        sure = c1.checkbox("Yes, delete this reward for good", key=f"delok_{rid}",
+                           help="Tip: untick 'Show in the shop' instead if you only want to hide it for now.")
+        if c2.button("🗑️ Delete reward", key=f"del_{rid}", type="tertiary", disabled=not sure,
+                     use_container_width=True):
+            data.delete_reward(r)
+            st.rerun()
 
 
 # ---------------------------------------------------------------- screen time
@@ -205,6 +215,34 @@ def _bonus():
                 st.success(f"{'+' if amt > 0 else ''}{amt} XP sent to Aadiv.")
 
 
+# ---------------------------------------------------------------- tips
+def _tips():
+    st.caption("One tip shows on Aadiv's Home page each day, rotating through this list.")
+    items = data.tips()
+    if items:
+        today = items[g.today().toordinal() % len(items)]
+        style.card(f'<div class="ar-title" style="font-size:1.05rem">💡 Showing today</div>'
+                   f'<div style="font-weight:700">{esc(today)}</div>', "ar-card ar-tip")
+    with st.form("add_tip", clear_on_submit=True):
+        new = st.text_input("Add a tip", placeholder="🏀 Bend your knees on every shot")
+        if st.form_submit_button("➕ Add tip", use_container_width=True):
+            if new.strip():
+                data.save_tips(items + [new.strip()])
+                st.rerun()
+            st.error("Type a tip first.")
+    if not items:
+        st.info("No tips yet, so the tip card is hidden on Home.")
+    for i, t in enumerate(items):
+        c1, c2 = st.columns([6, 1])
+        c1.markdown(f"{i + 1}. {esc(t)}")
+        if c2.button("🗑️", key=f"tipdel_{i}", type="tertiary", help="Remove this tip", use_container_width=True):
+            data.save_tips(items[:i] + items[i + 1:])
+            st.rerun()
+    if st.button("↩️ Restore the starter tips", type="tertiary"):
+        data.save_tips(list(dict.fromkeys(items + g.DEFAULT_TIPS)))
+        st.rerun()
+
+
 # ---------------------------------------------------------------- settings
 def _settings():
     sett = data.settings()
@@ -214,6 +252,8 @@ def _settings():
                         index=0 if sett["approval"] == "parent" else 1, horizontal=True,
                         format_func=lambda v: "I check it first (XP waits)" if v == "parent" else "XP lands straight away")
         st.markdown("#### Weekly goals")
+        st.caption("Set a goal to 0 to switch that activity off: it disappears from Home and Log it! "
+                   "(past logs and records stay in the Trophy Room).")
         gc = st.columns(5)
         goals = {}
         for col, kind in zip(gc, ["basketball", "tennis", "swimming", "maths", "writing"]):

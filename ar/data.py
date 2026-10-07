@@ -43,9 +43,21 @@ def settings() -> dict:
     return g.merged_settings(rows[0].get("data") if rows else None)
 
 
-def save_settings(s: dict):
-    store().upsert("settings", {"family_id": me()["family_id"], "data": s, "updated_at": now_iso()},
+def save_settings(patch: dict):
+    """Merge into what is saved, so saving one part (e.g. tips) never wipes another."""
+    rows = store().select("settings", eq={"family_id": me()["family_id"]})
+    cur = dict((rows[0].get("data") if rows else None) or {})
+    cur.update(patch)
+    store().upsert("settings", {"family_id": me()["family_id"], "data": cur, "updated_at": now_iso()},
                    on_conflict="family_id")
+
+
+def tips() -> list[str]:
+    return [t for t in settings().get("tips") or [] if str(t).strip()]
+
+
+def save_tips(items: list[str]):
+    save_settings({"tips": [t.strip() for t in items if t and t.strip()]})
 
 
 # ---------------------------------------------------------------- reads
@@ -143,17 +155,19 @@ def weekly_bonuses(uid, day=None):
     sett = settings()
     wk = g.week_start(day or g.today())
     acts = activities(uid)
-    prog = g.week_progress(acts, sett["goals"], wk, approved_only=True)
+    goals = {k: v for k, v in sett["goals"].items() if k in g.active_kinds(sett)}
+    prog = g.week_progress(acts, goals, wk, approved_only=True)
     have = {e.get("source_id") for e in xp_events(uid)}
     bonus = int(sett["rules"]["weekly_goal_bonus"])
     for kind, p in prog.items():
         key = f"week:{wk}:{kind}"
         if p["goal"] and p["done"] >= p["goal"] and key not in have:
             add_xp(uid, bonus, f"🎯 Weekly goal smashed: {g.KINDS[kind]['name']}", key)
-    sports_done = all(prog[k]["goal"] and prog[k]["done"] >= prog[k]["goal"] for k in g.SPORTS if k in prog)
+    act = [k for k in g.active_kinds(sett) if k in g.SPORTS and prog.get(k, {}).get("goal")]
+    sports_done = len(act) >= 2 and all(prog[k]["done"] >= prog[k]["goal"] for k in act)
     key = f"week:{wk}:triple"
     if sports_done and key not in have:
-        add_xp(uid, int(sett["rules"]["triple_threat_bonus"]), "🔱 All three sports goals this week!", key)
+        add_xp(uid, int(sett["rules"]["triple_threat_bonus"]), "🔱 Every sports goal this week!", key)
 
 
 def manual_bonus(amount: int, reason: str):
@@ -214,6 +228,11 @@ def refund(red: dict, why="declined"):
     """Decline a reward request / cancel a screen ticket. XP comes back automatically."""
     store().update("redemptions", {"id": red["id"]}, {"status": "rejected" if why == "declined" else "cancelled",
                                                       "closed_at": now_iso()})
+
+
+def delete_reward(r: dict):
+    """Remove a reward from the catalogue. Past and pending requests keep their title and XP."""
+    store().delete("rewards", {"id": r["id"]})
 
 
 def save_reward(r: dict):

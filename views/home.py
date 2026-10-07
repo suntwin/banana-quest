@@ -3,18 +3,6 @@ import streamlit as st
 from ar import data, gamify as g, nav, style
 from ar.style import esc
 
-TIPS = [
-    "🏀 Free throws: same routine every time. Bounce, breathe, bend the knees, follow through.",
-    "🎾 Watch the ball onto the strings. Eyes on the ball, not the other player.",
-    "🏊 Long and strong: reach far in front and kick from the hips, not the knees.",
-    "🏀 Dribble with your fingertips and keep your eyes up. Look at the court, not the ball.",
-    "🎾 Split-step every time your opponent hits. Tiny hop, then go!",
-    "🏊 Breathe out under water so you only need a quick breath in.",
-    "💧 Drink water before, during and after training. Bananas are great fuel too 🍌",
-    "🔢 Times tables are like free throws: a few minutes every day makes them automatic.",
-    "✍️ Great stories have a problem. What goes wrong for your character?",
-    "😴 Sleep is when muscles grow. Champions go to bed on time.",
-]
 STATUS = {"pending": ("⏳ waiting for Papa", "yel"), "approved": ("✅ approved", "ok"),
           "rejected": ("✖ not counted", "bad")}
 
@@ -61,7 +49,8 @@ def render():
     with left:
         st.markdown("### 🎯 This week's missions")
         prog = g.week_progress(s["activities"], sett["goals"])
-        for kind in ["basketball", "tennis", "swimming", "maths", "writing"]:
+        active = g.active_kinds(sett)
+        for kind in active:
             p = prog.get(kind)
             if not p or not p["goal"]:
                 continue
@@ -74,11 +63,11 @@ def render():
                 f'<span>{p["done"]} / {p["goal"]} {p["unit"]}</span></div>'
                 f'<div style="margin-top:6px">{style.bar(p["pct"], "ok" if done else "")}</div></div>',
                 unsafe_allow_html=True)
-        st.caption(f"Each goal you hit = +{sett['rules']['weekly_goal_bonus']} XP. All three sports = "
+        st.caption(f"Each goal you hit = +{sett['rules']['weekly_goal_bonus']} XP. Every sports goal = "
                    f"+{sett['rules']['triple_threat_bonus']} more. Week starts Monday.")
         if is_child:
-            cols = st.columns(5)
-            for col, kind in zip(cols, ["basketball", "tennis", "swimming", "maths", "writing"]):
+            cols = st.columns(max(1, len(active)))
+            for col, kind in zip(cols, active):
                 if col.button(g.KINDS[kind]["icon"], key=f"go_{kind}", help=f"Log {g.KINDS[kind]['name']}",
                               use_container_width=True):
                     st.session_state.log_kind = kind
@@ -86,9 +75,11 @@ def render():
 
     with right:
         _goal_card(kid, w)
-        tip = TIPS[g.today().toordinal() % len(TIPS)]
-        style.card(f'<div class="ar-title" style="font-size:1.15rem">💡 Coach\'s tip</div>'
-                   f'<div style="margin-top:6px;font-weight:700">{esc(tip)}</div>', "ar-card ar-tip")
+        tips = data.tips()
+        if tips:
+            tip = tips[g.today().toordinal() % len(tips)]
+            style.card(f'<div class="ar-title" style="font-size:1.15rem">💡 Coach\'s tip</div>'
+                       f'<div style="margin-top:6px;font-weight:700">{esc(tip)}</div>', "ar-card ar-tip")
         _recent(s["activities"])
 
 

@@ -83,8 +83,28 @@ DEFAULT_RULES = {
 DEFAULT_GOALS = {"basketball": 120, "tennis": 90, "swimming": 90, "maths": 90, "writing": 2}
 DEFAULT_SCREEN = {"xp_per_min": 3, "cap_weekday": 60, "cap_weekend": 120,
                   "need_activity": True, "options": [15, 30, 45, 60]}
+DEFAULT_TIPS = [
+    "🏀 Free throws: same routine every time. Bounce, breathe, bend the knees, follow through.",
+    "🎾 Watch the ball onto the strings. Eyes on the ball, not the other player.",
+    "🏊 Long and strong: reach far in front and kick from the hips, not the knees.",
+    "🏀 Dribble with your fingertips and keep your eyes up. Look at the court, not the ball.",
+    "🎾 Split-step every time your opponent hits. Tiny hop, then go!",
+    "🏊 Breathe out under water so you only need a quick breath in.",
+    "💧 Drink water before, during and after training. Bananas are great fuel too 🍌",
+    "🔢 Times tables are like free throws: a few minutes every day makes them automatic.",
+    "✍️ Great stories have a problem. What goes wrong for your character?",
+    "😴 Sleep is when muscles grow. Champions go to bed on time.",
+]
+ACTIVITY_ORDER = ["basketball", "tennis", "swimming", "maths", "writing"]
 DEFAULT_SETTINGS = {"rules": DEFAULT_RULES, "goals": DEFAULT_GOALS, "screen": DEFAULT_SCREEN,
-                    "approval": "parent"}
+                    "approval": "parent", "tips": DEFAULT_TIPS}
+
+
+def active_kinds(sett: dict) -> list[str]:
+    """Activities Aadiv can log: a weekly goal of 0 switches an activity off
+    (hidden from Home and Log it!). Past logs and records stay in the Trophy Room."""
+    goals = sett.get("goals") or {}
+    return [k for k in ACTIVITY_ORDER if int(goals.get(k, 0) or 0) > 0]
 
 DEFAULT_REWARDS = [
     {"name": "Ice-cream trip", "emoji": "🍦", "cost": 250, "description": "One scoop (or two!) at the shop of your choice."},

@@ -27,12 +27,13 @@ def render():
         style.card(f'<div class="ar-title" style="font-size:1.4rem">Banana-tastic! +{done["xp"]} XP{pb}</div>'
                    f'<ul style="margin:.4rem 0">{lines}</ul><div class="ar-small">{status}</div>', "ar-card ar-ok")
 
+    order = g.active_kinds(data.settings()) or ORDER
     lk = st.session_state.pop("log_kind", None)
-    if lk in ORDER:
+    if lk in order:
         st.session_state.log_pick = lk
-    if st.session_state.get("log_pick") not in ORDER:
-        st.session_state.log_pick = "basketball"
-    kind = st.radio("What did you do?", ORDER, horizontal=True,
+    if st.session_state.get("log_pick") not in order:
+        st.session_state.log_pick = order[0]
+    kind = st.radio("What did you do?", order, horizontal=True,
                     format_func=lambda k: f"{g.KINDS[k]['icon']} {g.KINDS[k]['name']}", key="log_pick")
 
     k = g.KINDS[kind]
