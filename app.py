@@ -112,13 +112,14 @@ if st.session_state.get("remember"):
         remember.save(_tok)
         st.session_state.saved_token = _tok
 
-from views import home, log, parent, shop, trophies  # noqa: E402
+from views import home, log, parent, shop, tables, trophies  # noqa: E402
 
 prof = st.session_state.profile
 if prof["role"] == "child":
     pages = [
         st.Page(home.render, title="Home", icon="🏠", url_path="home", default=True),
         st.Page(log.render, title="Log it!", icon="➕", url_path="log"),
+        st.Page(tables.render, title="Times Tables", icon="✖️", url_path="tables"),
         st.Page(shop.render, title="Reward Shop", icon="🎁", url_path="shop"),
         st.Page(trophies.render, title="Trophy Room", icon="🏆", url_path="trophies"),
     ]
@@ -126,6 +127,7 @@ else:
     pages = [
         st.Page(parent.render, title="Parent Hub", icon="🧭", url_path="parent", default=True),
         st.Page(home.render, title="Aadiv's Home", icon="🏠", url_path="home"),
+        st.Page(tables.render, title="Times Tables", icon="✖️", url_path="tables"),
         st.Page(shop.render, title="Reward Shop", icon="🎁", url_path="shop"),
         st.Page(trophies.render, title="Trophy Room", icon="🏆", url_path="trophies"),
     ]

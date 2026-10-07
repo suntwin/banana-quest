@@ -328,3 +328,31 @@ def reset_child_data():
     uid = child()["id"]
     for t in ("activities", "xp_events", "redemptions", "badges"):
         store().delete(t, {"user_id": uid})
+
+
+# ---------------------------------------------------------------- times tables
+def tables_xp_today(uid=None) -> int:
+    t = str(g.today())
+    return sum(int(a.get("xp") or 0) for a in activities(uid)
+               if a.get("kind") == "tables" and str(a.get("day")) == t)
+
+
+def save_tables_round(table, questions, answers, seconds, result) -> dict:
+    """Store a finished round as an auto-approved activity and pay its XP."""
+    kid = me()
+    det = {"table": table, "right": result["right"], "total": result["total"],
+           "seconds": round(float(seconds), 1), "mastered": bool(result["new_master"] or
+                                                                  (table and result["perfect"] and result["fast"])),
+           "wrong": [[q[0], q[1], a] for q, a in result["wrong"]], "xp_lines": result["lines"],
+           "capped": result["capped"]}
+    row = store().insert("activities", {
+        "user_id": kid["id"], "day": str(g.today()), "area": "maths", "kind": "tables",
+        "session_type": f"{table}x table" if table else "Mixed tables",
+        "minutes": max(1, round(float(seconds) / 60)), "effort": 0, "details": det, "note": "",
+        "xp": int(result["xp"]), "status": "approved", "reviewed_at": now_iso()})
+    if result["xp"]:
+        add_xp(kid["id"], int(result["xp"]),
+               f"✖️ Times tables: {row['session_type']} ({result['right']}/{result['total']})", row["id"])
+    weekly_bonuses(kid["id"])
+    award_badges(kid["id"])
+    return row

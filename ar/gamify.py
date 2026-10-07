@@ -49,6 +49,7 @@ SPORTS = {
 OTHER = {
     "maths": {"name": "Maths", "icon": "🔢", "area": "maths"},
     "writing": {"name": "English writing", "icon": "✍️", "area": "writing"},
+    "tables": {"name": "Times tables", "icon": "✖️", "area": "maths"},
 }
 KINDS = {**SPORTS, **OTHER}
 MATHS_TOPICS = ["Times tables", "Mental maths", "Fractions & decimals", "Problem solving",
@@ -79,6 +80,8 @@ DEFAULT_RULES = {
     "writing_base": 10, "writing_per_50_words": 5, "writing_cap_words": 600, "writing_star": 10,
     # weekly goals
     "weekly_goal_bonus": 30, "triple_threat_bonus": 50,
+    # times tables (auto-marked in the app, so XP lands straight away)
+    "tables_daily_cap": 150, "tables_perfect_bonus": 10, "tables_speed_bonus": 5, "tables_master_bonus": 20,
 }
 DEFAULT_GOALS = {"basketball": 120, "tennis": 90, "swimming": 90, "maths": 90, "writing": 2}
 DEFAULT_SCREEN = {"xp_per_min": 3, "cap_weekday": 60, "cap_weekend": 120,
@@ -330,7 +333,8 @@ def week_progress(activities: list[dict], goals: dict, wk: date | None = None,
         done = 0
         for a in activities:
             d = to_date(a.get("day"))
-            if a.get("kind") != kind or not d or not (wk <= d < end):
+            ak = "maths" if a.get("kind") == "tables" else a.get("kind")
+            if ak != kind or not d or not (wk <= d < end):
                 continue
             if a.get("status") == "rejected" or (approved_only and a.get("status") != "approved"):
                 continue
@@ -362,6 +366,9 @@ BADGES = [
     ("first_reward", "🎁", "Treat Yourself", "Swap XP for your first reward"),
     ("saver", "🏦", "Banana Bank", "Save up 1,000 XP without spending"),
     ("goal_week", "✅", "Goal Getter", "Hit every weekly goal in one week"),
+    ("table_tamer", "✖️", "Table Tamer", "Master your first times table"),
+    ("tables_12", "🧠", "Tables Boss", "Master every table from 1 to 12"),
+    ("tables_15", "🏅", "Tables Legend", "Master every table from 1 to 15"),
 ]
 BADGE_MAP = {k: (ic, name, desc) for k, ic, name, desc in BADGES}
 
@@ -412,4 +419,12 @@ def earned_badges(ctx: dict) -> list[str]:
         got.append("saver")
     if ctx.get("all_goals_week"):
         got.append("goal_week")
+    from .tables import mastered
+    m = mastered(acts)
+    if m:
+        got.append("table_tamer")
+    if set(range(1, 13)) <= m:
+        got.append("tables_12")
+    if set(range(1, 16)) <= m:
+        got.append("tables_15")
     return got

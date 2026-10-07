@@ -66,6 +66,9 @@ def render():
         st.caption(f"Each goal you hit = +{sett['rules']['weekly_goal_bonus']} XP. Every sports goal = "
                    f"+{sett['rules']['triple_threat_bonus']} more. Week starts Monday.")
         if is_child:
+            if st.button(f"✖️ Times tables practice (up to {sett['rules']['tables_daily_cap']} XP a day)",
+                         key="go_tables", use_container_width=True):
+                nav.go("tables")
             cols = st.columns(max(1, len(active)))
             for col, kind in zip(cols, active):
                 if col.button(g.KINDS[kind]["icon"], key=f"go_{kind}", help=f"Log {g.KINDS[kind]['name']}",
