@@ -9,6 +9,10 @@ from ar.store import get_store  # noqa: E402
 
 style.apply()
 store = get_store()
+if store is not None and not hasattr(store, "current_token"):
+    # A login made before an app update can hold an older store object: rebuild it.
+    st.session_state.pop("store", None)
+    store = get_store()
 if store is None:
     st.markdown('<div class="ar-hero" style="text-align:center"><div style="font-size:56px">🍌</div>'
                 '<h1>Banana Quest</h1><div class="sub">Almost ready!</div><div class="band">Setup needed</div></div>',
@@ -25,9 +29,12 @@ def try_restore():
         return
     st.session_state.restore_tried = True
     tok = remember.read()
-    if not tok:
+    if not tok or not hasattr(store, "restore"):
         return
-    prof = store.restore(tok)
+    try:
+        prof = store.restore(tok)
+    except Exception:
+        prof = None
     if prof:
         st.session_state.profile = prof
         st.session_state.remember = True
@@ -97,7 +104,10 @@ if "profile" not in st.session_state or not st.session_state.profile:
 
 # keep the remembered token fresh (Supabase swaps it for a new one now and then)
 if st.session_state.get("remember"):
-    _tok = store.current_token()
+    try:
+        _tok = store.current_token()
+    except Exception:          # never let 'remember me' break the app
+        _tok = None
     if _tok and _tok != st.session_state.get("saved_token"):
         remember.save(_tok)
         st.session_state.saved_token = _tok
