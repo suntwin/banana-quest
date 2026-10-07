@@ -154,10 +154,23 @@ def _reward_form(r):
 # ---------------------------------------------------------------- screen time
 def _screen(kid):
     s = data.screen_today(kid["id"])
-    st.markdown(f"**Today:** {s['bought']} of {s['cap']} min booked or used · rate {s['rate']} XP/min · "
-                f"unlock rule {'on' if s['need_activity'] else 'off'} · "
-                f"{'✅ active today' if s['active_today'] else '⏸ nothing logged today yet'}")
+    wk = data.screen_summary(kid["id"], 7)
+    share = f"{round(100 * wk['xp'] / wk['earned'])}%" if wk["earned"] else "–"
+    st.markdown(
+        '<div class="ar-stat">'
+        f'<div class="box"><div class="big">📺 {s["bought"]}</div><div class="lbl">min today (cap {s["cap"]})</div></div>'
+        f'<div class="box"><div class="big">⏱️ {wk["minutes"] // 60}h {wk["minutes"] % 60}m</div><div class="lbl">screens last 7 days</div></div>'
+        f'<div class="box money"><div class="big">🍌 {wk["xp"]}</div><div class="lbl">XP spent on screens (7 days)</div></div>'
+        f'<div class="box"><div class="big">{share}</div><div class="lbl">of the {wk["earned"]} XP he earned</div></div>'
+        '</div>', unsafe_allow_html=True)
+    split = " · ".join(f"{data.SCREEN_TYPES[k]} {v} min" for k, v in wk["by_type"].items() if v)
+    st.caption(f"Last 7 days by screen: {split or 'none yet'}. Rate {s['rate']} XP per minute · unlock rule "
+               f"{'on' if s['need_activity'] else 'off'} · "
+               f"{'active today' if s['active_today'] else 'nothing logged today yet'}.")
+
     live = [t for t in s["tickets"] if t.get("status") in ("ready", "running")]
+    if live:
+        st.markdown("#### Tickets right now")
     for t in live:
         c1, c2 = st.columns([3, 1])
         c1.markdown(f"{esc(t['title'])} · {t['status']}" +
@@ -165,16 +178,33 @@ def _screen(kid):
         if c2.button("Cancel + refund", key=f"rf_{t['id']}", type="tertiary", use_container_width=True):
             data.refund(t, "cancelled")
             st.rerun()
+
+    with st.expander("➕ Add screen time he watched without a ticket"):
+        with st.form("add_screen", clear_on_submit=True):
+            c1, c2, c3 = st.columns(3)
+            kind = c1.selectbox("Screen", list(data.SCREEN_TYPES), format_func=lambda k: data.SCREEN_TYPES[k])
+            mins = c2.number_input("Minutes", min_value=5, max_value=600, value=30, step=5)
+            day = c3.date_input("Day", value=g.today(), max_value=g.today(), format="DD/MM/YYYY")
+            charge = st.checkbox(f"Take the XP for it ({s['rate']} XP per minute)", value=True,
+                                 help="Untick to just record it (e.g. a family movie night). Taking XP can push his balance below zero, which he then earns back.")
+            if st.form_submit_button("Add it", use_container_width=True):
+                data.add_screen_by_parent(kind, int(mins), day, charge)
+                st.success("Recorded.")
+                st.rerun()
+
     st.markdown("#### Last 14 days")
-    tickets = data.refresh_tickets(kid["id"])
+    full = data.screen_summary(kid["id"], 14)
+    heads = "".join(f'<th class="n">{data.SCREEN_TYPES[k]}</th>' for k in data.SCREEN_TYPES)
     rows = ""
     for i in range(14):
         d = g.today() - timedelta(days=i)
-        ts = [t for t in tickets if str(t.get("day")) == str(d) and t.get("status") in data.SPENT_STATUSES]
-        mins = sum(int(t.get("minutes") or 0) for t in ts)
-        xp = sum(int(t.get("cost") or 0) for t in ts)
-        rows += f'<tr><td>{d.strftime("%a %d %b")}</td><td class="n">{mins} min</td><td class="n">🍌 {xp}</td></tr>'
-    style.card(f'<table class="ar-table"><tr><th>Day</th><th class="n">Screen time</th><th class="n">XP spent</th></tr>{rows}</table>')
+        r = full["by_day"].get(str(d), {"min": 0, "xp": 0, **{k: 0 for k in data.SCREEN_TYPES}})
+        cells = "".join(f'<td class="n">{r[k] or ""}</td>' for k in data.SCREEN_TYPES)
+        rows += (f'<tr><td>{d.strftime("%a %d %b")}</td>{cells}<td class="n"><b>{r["min"]} min</b></td>'
+                 f'<td class="n">🍌 {r["xp"]}</td></tr>')
+    style.card(f'<table class="ar-table"><tr><th>Day</th>{heads}<th class="n">Total</th><th class="n">XP spent</th></tr>'
+               f'{rows}</table><div class="ar-small" style="margin-top:6px">Counts screen time that was used or is '
+               f'running. Tickets bought but not started yet are not counted.</div>')
 
 
 # ---------------------------------------------------------------- this week
@@ -268,6 +298,10 @@ def _settings():
         we = c.number_input("Max min on weekends", min_value=0, max_value=600, value=int(sc["cap_weekend"]), step=15)
         need = st.checkbox("Screen time only unlocks after something is logged that day", value=bool(sc["need_activity"]))
         opts = st.text_input("Ticket sizes (minutes, comma separated)", ", ".join(str(x) for x in sc["options"]))
+        st.markdown("#### Times tables")
+        focus = st.multiselect("🎯 Focus tables (double XP, shown at the top of his Times Tables page)",
+                               list(range(1, 16)), default=[int(x) for x in sett.get("tables_focus") or []],
+                               format_func=lambda n: f"{n}×")
         with st.expander("Advanced: XP rules"):
             rules = {}
             rc = st.columns(3)
@@ -282,7 +316,8 @@ def _settings():
             data.save_settings({"approval": appr, "goals": {k: int(v) for k, v in goals.items()},
                                 "screen": {"xp_per_min": int(rate), "cap_weekday": int(wd), "cap_weekend": int(we),
                                            "need_activity": need, "options": options or [15, 30]},
-                                "rules": {k: int(v) for k, v in rules.items()}})
+                                "rules": {k: int(v) for k, v in rules.items()},
+                                "tables_focus": [int(x) for x in focus]})
             st.success("Saved ✅")
 
     st.markdown("#### Reset test data")

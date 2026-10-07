@@ -291,7 +291,54 @@ def screen_today(uid=None) -> dict:
             "active_today": active_today, "rate": int(sett["xp_per_min"]),
             "need_activity": bool(sett.get("need_activity", True)), "options": sett.get("options") or [15, 30, 45, 60]}
 
-def buy_screen(minutes: int) -> str | None:
+SCREEN_TYPES = {"tv": "📺 TV", "ipad": "📱 iPad", "games": "🎮 Games", "computer": "💻 Computer"}
+
+
+def screen_type(title: str) -> str:
+    """Which screen a ticket was for (old tickets without a type count as TV)."""
+    for k, lab in SCREEN_TYPES.items():
+        if str(title or "").startswith(lab.split(" ")[0]):
+            return k
+    return "tv"
+
+
+def screen_summary(uid=None, days: int = 7) -> dict:
+    """Minutes and XP spent on screens over the last `days` days, by day and by type."""
+    uid = uid or child()["id"]
+    start = g.today() - timedelta(days=days - 1)
+    tickets = [t for t in refresh_tickets(uid) if t.get("status") in ("running", "used")]
+    by_day, by_type = {}, {k: 0 for k in SCREEN_TYPES}
+    mins = xp = 0
+    for t in tickets:
+        d = g.to_date(t.get("day"))
+        if not d or d < start:
+            continue
+        m, c, k = int(t.get("minutes") or 0), int(t.get("cost") or 0), screen_type(t.get("title"))
+        row = by_day.setdefault(str(d), {"min": 0, "xp": 0, **{x: 0 for x in SCREEN_TYPES}})
+        row["min"] += m
+        row["xp"] += c
+        row[k] += m
+        by_type[k] += m
+        mins += m
+        xp += c
+    earned = sum(int(e["amount"]) for e in xp_events(uid)
+                 if g.to_date(e.get("created_at")) and g.to_date(e["created_at"]) >= start and int(e["amount"]) > 0)
+    return {"minutes": mins, "xp": xp, "by_type": by_type, "by_day": by_day, "earned": earned,
+            "start": start}
+
+
+def add_screen_by_parent(kind: str, minutes: int, day, charge: bool):
+    """Record screen time Papa saw (e.g. TV without a ticket). Optionally takes the XP for it."""
+    kid = child()
+    rate = int(settings()["screen"]["xp_per_min"])
+    cost = int(minutes) * rate if charge else 0
+    store().insert("redemptions", {"user_id": kid["id"], "kind": "screen",
+                                   "title": f"{SCREEN_TYPES[kind]} · {int(minutes)} min (added by {me()['display_name']})",
+                                   "minutes": int(minutes), "cost": cost, "day": str(day), "status": "used",
+                                   "closed_at": now_iso()})
+
+
+def buy_screen(minutes: int, kind: str = "tv") -> str | None:
     s = screen_today()
     cost = int(minutes) * s["rate"]
     if s["need_activity"] and not s["active_today"]:
@@ -300,7 +347,8 @@ def buy_screen(minutes: int) -> str | None:
         return f"Today's limit is {s['cap']} min and you have {s['left']} min left."
     if wallet()["balance"] < cost:
         return "Not enough XP for that one yet."
-    store().insert("redemptions", {"user_id": me()["id"], "kind": "screen", "title": f"📺 {minutes} min screen time",
+    store().insert("redemptions", {"user_id": me()["id"], "kind": "screen",
+                                   "title": f"{SCREEN_TYPES.get(kind, SCREEN_TYPES['tv'])} · {minutes} min",
                                    "minutes": int(minutes), "cost": cost, "day": str(g.today()), "status": "ready"})
     return None
 
@@ -319,7 +367,8 @@ def stop_ticket(t: dict):
     if left_min > 0:
         rate = int(round(int(t["cost"]) / max(1, int(t["minutes"]))))
         store().insert("redemptions", {"user_id": t["user_id"], "kind": "screen",
-                                       "title": f"📺 {left_min} min screen time (saved)", "minutes": left_min,
+                                       "title": f"{SCREEN_TYPES[screen_type(t.get('title'))]} · {left_min} min (saved)",
+                                       "minutes": left_min,
                                        "cost": left_min * rate, "day": str(t.get("day")), "status": "ready"})
 
 

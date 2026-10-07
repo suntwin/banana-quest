@@ -130,12 +130,14 @@ def _screen(kid, w, is_child):
 
     if is_child:
         st.markdown("#### Buy a screen-time ticket")
+        kind = st.radio("What for?", list(data.SCREEN_TYPES), horizontal=True, key="scr_kind",
+                        format_func=lambda k: data.SCREEN_TYPES[k])
         cols = st.columns(len(s["options"]))
         for col, m in zip(cols, s["options"]):
             cost = int(m) * s["rate"]
             dis = locked or m > s["left"] or w["balance"] < cost
             if col.button(f"{m} min\n🍌 {cost}", key=f"scr_{m}", disabled=dis, use_container_width=True):
-                err = data.buy_screen(int(m))
+                err = data.buy_screen(int(m), kind)
                 if err:
                     st.error(err)
                 else:
@@ -143,6 +145,11 @@ def _screen(kid, w, is_child):
         st.caption("Tickets are for today only. Unused tickets are refunded automatically tomorrow, or cancel one any time.")
     else:
         st.caption("Change the XP rate, daily limits and the unlock rule in Parent Hub → Settings.")
+    wk = data.screen_summary(kid["id"], 7)
+    split = " · ".join(f"{data.SCREEN_TYPES[k]} {v} min" for k, v in wk["by_type"].items() if v) or "none yet"
+    style.card(f'<div class="ar-title" style="font-size:1.05rem">📊 Last 7 days</div>'
+               f'<div style="font-weight:700">{wk["minutes"]} min of screens ({split})</div>'
+               f'<div class="ar-small">🍌 {wk["xp"]} XP spent on screens · {wk["earned"]} XP earned</div>')
 
 
 def _countdown(t):

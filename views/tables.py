@@ -10,7 +10,9 @@ from ar.style import esc
 def render():
     is_child = data.is_child()
     kid = data.fresh_child()
-    rules = data.settings()["rules"]
+    sett = data.settings()
+    rules = sett["rules"]
+    focus = {int(x) for x in sett.get("tables_focus") or []}
     acts = data.activities(kid["id"])
     done = T.mastered(acts)
     best = T.best_by_table(acts)
@@ -19,7 +21,7 @@ def render():
 
     st.markdown("# ✖️ Times Tables")
     st.markdown(
-        '<div class="ar-sub">12 quick questions a round. Bigger tables earn more XP per answer. '
+        '<div class="ar-sub">12 quick questions a round. Trickier tables earn more XP per answer, and a new table beats repeating one. '
         'Get all 12 right fast enough to <b>master</b> a table ⭐</div>', unsafe_allow_html=True)
     style.card(f'<div style="display:flex;justify-content:space-between;font-weight:800">'
                f'<span>🍌 Tables XP today</span><span>{today_xp} / {cap}</span></div>'
@@ -29,19 +31,23 @@ def render():
 
     rnd = st.session_state.get("tt_round")
     if rnd and is_child:
-        _play(rnd, rules, done, today_xp)
+        _play(rnd, rules, done, today_xp, focus, acts)
         return
     res = st.session_state.pop("tt_result", None)
     if res and is_child:
         _result(res)
 
-    _picker(is_child, done, best)
+    _picker(is_child, done, best, focus, acts)
     _recent(acts)
 
 
 # ---------------------------------------------------------------- picker
-def _picker(is_child, done, best):
+def _picker(is_child, done, best, focus, acts):
     st.markdown("### Pick a table")
+    if focus:
+        st.markdown('<div class="ar-tip" style="font-weight:800">🎯 Papa\'s focus tables this week (double XP): '
+                    + ", ".join(f"{n}×" for n in sorted(focus)) + "</div>", unsafe_allow_html=True)
+    today = str(g.today())
     if not is_child:
         st.info("This is Aadiv's practice area. Stars show the tables he has mastered.")
     cols = st.columns(5)
@@ -49,14 +55,20 @@ def _picker(is_child, done, best):
         b = best.get(n)
         star = "⭐" if n in done else ""
         sub = f"Best so far {b['best']}/12 over {b['rounds']} rounds" if b else "Not tried yet"
-        label = f"{n}× {star}\n+{T.xp_per_correct(n)} XP"
+        f = T.repeat_factor(T.rounds_today(acts, n, today))
+        per = T.q_value(n, done, focus) * f
+        mark = "🎯" if n in focus else ""
+        pay = "0 XP" if per == 0 else f"+{per:g} XP"
+        label = f"{n}× {star}{mark}\n{pay}"
         if cols[i % 5].button(label, key=f"tt_pick_{n}", use_container_width=True, disabled=not is_child, help=sub,
                               type="tertiary" if n in done else "secondary"):
             _start(n)
     if st.button("🎲 Mixed round (2× to 15×)", use_container_width=True, disabled=not is_child, key="tt_mixed"):
         _start(None)
-    st.caption("Master a table: 12/12 in under 60 s (1×–10×) or 90 s (11×–15×). "
-               "Bonuses: perfect round +10, speedy +5, first time mastering a table +20.")
+    st.caption("XP per answer depends on how tricky a table is: 1×, 2×, 5×, 10×, 11× = 1 · 3×, 4× = 2 · "
+               "6×, 9×, 12× = 3 · 7×, 8× = 4 · 13×–15× = 5. The same table again today pays half, then nothing. "
+               "Mastered ⭐ tables pay half; 🎯 focus tables pay double. "
+               "Master a table: 12/12 in under 60 s (1×–10×) or 90 s (11×–15×) for a one-off +20.")
 
 
 def _start(table):
@@ -66,7 +78,7 @@ def _start(table):
 
 
 # ---------------------------------------------------------------- playing
-def _play(r, rules, done, today_xp):
+def _play(r, rules, done, today_xp, focus, acts):
     qs, answers = r["qs"], r["answers"]
     i = len(answers)
     title = f"{r['table']}× table" if r["table"] else "Mixed tables"
@@ -104,7 +116,8 @@ def _play(r, rules, done, today_xp):
         r["last"] = ([a_, b_], val)
         if len(answers) == len(qs):
             secs = time.time() - r["start"]
-            res = T.score_round(r["table"], qs, answers, secs, rules, done, today_xp)
+            reps = T.rounds_today(acts, r["table"], str(g.today()))
+            res = T.score_round(r["table"], qs, answers, secs, rules, done, today_xp, focus, reps)
             data.save_tables_round(r["table"], qs, answers, secs, res)
             res["seconds"] = secs
             res["table"] = r["table"]
@@ -119,7 +132,7 @@ def _result(res):
         style.banana_burst()
     head = (f"⭐ You mastered the {res['table']}× table!" if res["new_master"]
             else "Perfect round! 🎉" if res["perfect"] else f"{res['right']} / {res['total']} right")
-    lines = "".join(style.pill(f"{t} +{x}", "den") for t, x in res["lines"])
+    lines = "".join(style.pill(f"{t} +{x}" if x else t, "den" if x else "yel") for t, x in res["lines"])
     capped = ('<div class="ar-small">Daily tables XP is full, so this round earned '
               f'{res["xp"]} of {res["raw"]} XP.</div>' if res["capped"] else "")
     wrong = ""
