@@ -28,20 +28,29 @@ def try_restore():
     if st.session_state.get("restore_tried"):
         return
     st.session_state.restore_tried = True
-    tok = remember.read()
-    if not tok or not hasattr(store, "restore"):
+    blob = remember.read()
+    st.session_state.restore_status = "none" if not blob else "failed"
+    if not blob:
+        if remember.had_old_cookie():           # v1 cookie: tidy it away
+            st.session_state.forget_cookie = True
         return
+    prof = None
     try:
-        prof = store.restore(tok)
+        if blob.startswith("demo:"):
+            prof = store.restore(blob)
+        else:
+            creds = remember.unpack(blob)
+            if creds:
+                prof = store.sign_in(*creds)
     except Exception:
         prof = None
     if prof:
         st.session_state.profile = prof
-        st.session_state.remember = True
+        st.session_state.remember_blob = blob
         st.session_state.landing = True
         st.rerun()
     else:
-        st.session_state.forget_cookie = True   # stale token: delete it
+        st.session_state.forget_cookie = True   # password changed or key changed: delete it
 
 
 def login():
@@ -58,15 +67,18 @@ def login():
             c1, c2 = st.columns(2)
             if c1.button("🍌 I'm Aadiv", use_container_width=True):
                 st.session_state.profile = store.sign_in("aadiv@demo", "")
-                st.session_state.remember = True
+                st.session_state.remember_blob = "demo:aadiv@demo"
                 st.session_state.landing = True
                 st.rerun()
             if c2.button("🧭 I'm Papa", use_container_width=True, type="tertiary"):
                 st.session_state.profile = store.sign_in("papa@demo", "")
-                st.session_state.remember = True
+                st.session_state.remember_blob = "demo:papa@demo"
                 st.session_state.landing = True
                 st.rerun()
             return
+        status = st.session_state.get("restore_status")
+        if status == "failed":
+            st.caption("This device had a saved login, but it no longer works (password changed?). Please log in again.")
         with st.form("login"):
             email = st.text_input("Email")
             pw = st.text_input("Password", type="password")
@@ -79,7 +91,7 @@ def login():
                 else:
                     if prof:
                         st.session_state.profile = prof
-                        st.session_state.remember = keep
+                        st.session_state.remember_blob = remember.pack(email.strip(), pw) if keep else None
                         st.session_state.landing = True
                         st.rerun()
                     st.error("Logged in, but no Banana Quest profile found. Run supabase/seed_family.sql.")
@@ -101,16 +113,6 @@ if "profile" not in st.session_state or not st.session_state.profile:
     try_restore()
     login()
     st.stop()
-
-# keep the remembered token fresh (Supabase swaps it for a new one now and then)
-if st.session_state.get("remember"):
-    try:
-        _tok = store.current_token()
-    except Exception:          # never let 'remember me' break the app
-        _tok = None
-    if _tok and _tok != st.session_state.get("saved_token"):
-        remember.save(_tok)
-        st.session_state.saved_token = _tok
 
 from views import home, log, parent, shop, tables, trophies  # noqa: E402
 
@@ -141,6 +143,8 @@ with st.sidebar:
     st.markdown(f"### {prof.get('avatar', '🍌')} Hi, {prof['display_name']}!")
     if store.demo:
         st.caption("Demo mode · data stored locally")
+    st.caption("🔒 Remembered on this device" if st.session_state.get("remember_blob")
+               else "Not remembered on this device")
 nav = st.navigation(pages)
 if st.session_state.pop("landing", False) and nav.url_path != pages[0].url_path:
     st.switch_page(pages[0])
@@ -151,3 +155,10 @@ with st.sidebar:
         logout()
 nav.run()
 style.xp_toasts()
+# 'Remember me': (re)write the login cookie on every page view. Done last, so a quick
+# page switch can't cut it off; the value never changes, so writing it again is harmless.
+if st.session_state.get("remember_blob"):
+    try:
+        remember.save(st.session_state.remember_blob)
+    except Exception:
+        pass
