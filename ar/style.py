@@ -120,7 +120,15 @@ div[data-testid="stTabs"] button p{font-family:'Baloo 2',sans-serif; font-size:1
 .ar-sport.swimming{background:linear-gradient(135deg,#4dabf7,#1864ab)}
 .ar-sport.maths{background:linear-gradient(135deg,#9775fa,#6741d9)}
 .ar-sport.writing{background:linear-gradient(135deg,#f783ac,#c2255c)}
+.ar-sport.english{background:linear-gradient(135deg,#38c6d9,#0b7285)}
+.rq-week{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:.4rem}
+.rq-day{background:#fff; border:3px solid var(--line); border-radius:16px; padding:.4rem .3rem; text-align:center; font-weight:800}
+.rq-day.today{border-color:var(--den); box-shadow:0 0 0 3px #dce9fa}
+.rq-day .d{font-family:'Baloo 2',sans-serif; font-size:.95rem} .rq-day .s{font-size:1.15rem; line-height:1.5}
+.rq-day .x{font-size:.72rem; color:var(--ink2)}
+@media (max-width:640px){ .rq-week{grid-template-columns:repeat(4,minmax(0,1fr))} }
 .ar-sport *{color:#fff !important}
+.ar-sport .ar-pill{color:var(--ink) !important}
 .ar-small{font-size:.85rem; color:var(--ink2); font-weight:600}
 .ar-timer{font-family:'Luckiest Guy',sans-serif; font-size:3.4rem; letter-spacing:2px; color:var(--den2); text-align:center}
 .ar-table{width:100%; border-collapse:collapse; font-size:.92rem}
@@ -157,7 +165,7 @@ def pill(text, color="yel") -> str:
 
 def xp_toasts():
     for amount, reason in st.session_state.pop("xp_toasts", []):
-        st.toast(f"+{amount} XP · {reason}", icon="🍌")
+        st.toast(f"{int(amount):+d} XP · {reason}", icon="🍌" if int(amount) >= 0 else "↩️")
 
 
 def banana_burst():

@@ -184,8 +184,9 @@ def award_badges(uid) -> list[str]:
     all_goals = any(all(p["goal"] == 0 or p["done"] >= p["goal"]
                         for p in g.week_progress(acts, sett["goals"], wk, approved_only=True).values())
                     for wk in weeks)
+    from . import routine
     ctx = {"activities": acts, "redemptions": redemptions(uid), "balance": w["balance"],
-           "all_goals_week": all_goals}
+           "all_goals_week": all_goals, **routine.badge_ctx(uid, acts)}
     have = badges(uid)
     new = [k for k in g.earned_badges(ctx) if k not in have]
     for k in new:
@@ -377,6 +378,10 @@ def reset_child_data():
     uid = child()["id"]
     for t in ("activities", "xp_events", "redemptions", "badges"):
         store().delete(t, {"user_id": uid})
+    try:                                   # daily-routine timers (skip quietly if 002_routine.sql isn't run)
+        store().delete("routine_runs", {"user_id": uid})
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------- times tables

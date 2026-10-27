@@ -50,6 +50,7 @@ OTHER = {
     "maths": {"name": "Maths", "icon": "🔢", "area": "maths"},
     "writing": {"name": "English writing", "icon": "✍️", "area": "writing"},
     "tables": {"name": "Times tables", "icon": "✖️", "area": "maths"},
+    "english": {"name": "English", "icon": "📖", "area": "writing"},   # daily routine sessions (reading, spelling…)
 }
 KINDS = {**SPORTS, **OTHER}
 MATHS_TOPICS = ["Times tables", "Mental maths", "Fractions & decimals", "Problem solving",
@@ -82,6 +83,10 @@ DEFAULT_RULES = {
     "weekly_goal_bonus": 30, "triple_threat_bonus": 50,
     # times tables (auto-marked in the app, so XP lands straight away)
     "tables_daily_cap": 150, "tables_perfect_bonus": 10, "tables_speed_bonus": 5, "tables_master_bonus": 20,
+    # daily routine (25-min Maths and English sessions with the built-in timer; XP lands straight away)
+    "english_per_min": 1, "english_cap_min": 60,
+    "routine_day_bonus": 10,   # every routine session that day done in full
+    "routine_week_bonus": 50,  # every routine session Mon–Sun done in full
 }
 DEFAULT_GOALS = {"basketball": 120, "tennis": 90, "swimming": 90, "maths": 90, "writing": 2}
 DEFAULT_SCREEN = {"xp_per_min": 3, "cap_weekday": 60, "cap_weekend": 120,
@@ -369,6 +374,10 @@ BADGES = [
     ("table_tamer", "✖️", "Table Tamer", "Master your first times table"),
     ("tables_12", "🧠", "Tables Boss", "Master every table from 1 to 12"),
     ("tables_15", "🏅", "Tables Legend", "Master every table from 1 to 15"),
+    ("focus_first", "🎧", "Focus Mode", "Finish your first full routine session"),
+    ("routine_day7", "📅", "Daily Dynamo", "Whole routine done 7 days in a row"),
+    ("routine_week", "🗓️", "Routine Rockstar", "Every routine session in a whole week"),
+    ("focus_50", "🧠", "Brain Builder", "50 full routine sessions"),
 ]
 BADGE_MAP = {k: (ic, name, desc) for k, ic, name, desc in BADGES}
 
@@ -427,4 +436,12 @@ def earned_badges(ctx: dict) -> list[str]:
         got.append("tables_12")
     if set(range(1, 16)) <= m:
         got.append("tables_15")
+    if ctx.get("routine_full", 0) >= 1:
+        got.append("focus_first")
+    if ctx.get("routine_full", 0) >= 50:
+        got.append("focus_50")
+    if ctx.get("routine_best_run", 0) >= 7:
+        got.append("routine_day7")
+    if ctx.get("routine_weeks", 0) >= 1:
+        got.append("routine_week")
     return got

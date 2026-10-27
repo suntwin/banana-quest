@@ -7,7 +7,7 @@ import streamlit as st
 from ar import data, gamify as g, style
 from ar.style import esc
 
-COLORS = {"basketball": "#e8590c", "tennis": "#5c940d", "swimming": "#1864ab", "maths": "#6741d9",
+COLORS = {"basketball": "#e8590c", "tennis": "#5c940d", "swimming": "#1864ab", "maths": "#6741d9", "english": "#0b7285",
           "writing": "#c2255c"}
 
 
@@ -74,7 +74,7 @@ def _weeks_chart(acts):
     wk0 = g.week_start() - timedelta(weeks=7)
     weeks = [wk0 + timedelta(weeks=i) for i in range(8)]
     fig = go.Figure()
-    for kind in ["basketball", "tennis", "swimming", "maths"]:
+    for kind in ["basketball", "tennis", "swimming", "maths", "english"]:
         ys = []
         for wk in weeks:
             ys.append(sum(int(a.get("minutes") or 0) for a in acts if a["kind"] == kind

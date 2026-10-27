@@ -25,6 +25,14 @@ With these defaults, a solid week earns roughly 500 to 800 XP. That puts a Beybl
 
 ---
 
+## ⏱️ Daily Routine (added 2026-10-27)
+Short focused **Maths** and **English** sessions every day (default: 25 min each, Maths ~4:30pm, English ~5pm, Mon–Sun).
+- **Aadiv (sidebar → ⏱️ Daily Routine, or the card on Home):** tap **▶ Start my 25-min timer**, a countdown runs, and when it rings he picks the topic, adds what he did (optional) and taps **✅ I'm done!**. The XP lands **straight away** (no approval). Tapping done before the timer rings just says how long is left. **⏹ Stop early** (with a reason) pays for the minutes done (at least 5) but not the whole-day bonus; **✖ Cancel** gives nothing.
+- **XP:** Maths 1 per minute (uses the maths rules, cap 60), English 1 per minute (cap 60) → 25 XP per session; **+10** when every session that day is done in full; **+50** when every session Mon–Sun is done. A full week ≈ 470 XP. Sessions also count for his streak, the weekly maths goal, screen-time unlock and the Trophy Room chart.
+- **Papa (Parent Hub → 🗓️ Routine):** this week's strip, **The plan** as an editable table (subject, name, minutes, rough time, which days; add/remove rows), routine XP numbers, and **Recent sessions** with **Take back** (removes the XP and any routine bonus that no longer holds).
+- **Badges:** 🎧 Focus Mode (first full session), 📅 Daily Dynamo (7 complete days in a row), 🗓️ Routine Rockstar (a full week), 🧠 Brain Builder (50 full sessions).
+- **One-time setup:** run `supabase/002_routine.sql` in Supabase → SQL Editor (creates `ar_routine_runs`, which keeps a running timer through a reload or a sleeping tablet). The plan lives in `ar_settings`; finished sessions are normal `ar_activities` rows (kind `maths` / `english`). Code: `ar/routine.py`, `views/routine.py`.
+
 ## One-time setup (about 15 minutes)
 
 ### 1. Supabase (reuse the Selective Brain project)
@@ -73,7 +81,7 @@ Demo mode shows two buttons (Aadiv / Papa) and stores data in `.demo_data.json`.
 `supabase/seed_test_family.sql` creates a separate **Test family** with a test kid and a test parent, so someone can try both sides without touching Aadiv's XP. First add `testkid@example.com` and `testparent@example.com` in Authentication → Users (tick Auto Confirm), then run the script. Delete the family afterwards with the line at the bottom of the script.
 
 ## Files
-- `app.py`: login and navigation (child: Home, Log it!, Reward Shop, Trophy Room; parent: Parent Hub plus the same views)
+- `app.py`: login and navigation (child: Home, Daily Routine, Log it!, Times Tables, Reward Shop, Trophy Room; parent: Parent Hub plus the same views)
 - `ar/gamify.py`: sports catalogue, XP calculator, PBs, levels, streak, weekly goals, badges, default rewards
 - `ar/data.py`: reads and writes (wallet, approvals, weekly bonuses, rewards, screen-time tickets)
 - `ar/store.py`: Supabase (`ar_` tables) or local JSON

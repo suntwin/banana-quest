@@ -77,6 +77,8 @@ def render():
                     nav.go("log")
 
     with right:
+        from views import routine as _rq
+        _rq.home_card(kid, is_child)
         _goal_card(kid, w)
         tips = data.tips()
         if tips:

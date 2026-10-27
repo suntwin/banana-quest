@@ -30,7 +30,7 @@ def render():
         '</div>', unsafe_allow_html=True)
     st.write("")
     tabs = st.tabs([f"✅ To approve ({len(pend)})", f"🎁 Rewards ({len(reqs)})", "📺 Screen time",
-                    "📊 This week", "🎉 Bonus XP", "💡 Tips", "⚙️ Settings"])
+                    "📊 This week", "🗓️ Routine", "🎉 Bonus XP", "💡 Tips", "⚙️ Settings"])
     with tabs[0]:
         _approvals(pend)
     with tabs[1]:
@@ -40,10 +40,13 @@ def render():
     with tabs[3]:
         _week(s)
     with tabs[4]:
-        _bonus()
+        from views import routine
+        routine.render_parent(kid)
     with tabs[5]:
-        _tips()
+        _bonus()
     with tabs[6]:
+        _tips()
+    with tabs[7]:
         _settings()
 
 

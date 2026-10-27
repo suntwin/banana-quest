@@ -112,9 +112,9 @@ class SupabaseStore:
 # Local JSON backend (demo / offline testing)
 # ----------------------------------------------------------------------------
 _LOCK = threading.Lock()
-_ID_TABLES = {"families", "activities", "xp_events", "rewards", "redemptions"}
+_ID_TABLES = {"families", "activities", "xp_events", "rewards", "redemptions", "routine_runs"}
 TABLES = ["families", "profiles", "settings", "activities", "xp_events", "rewards",
-          "redemptions", "badges"]
+          "redemptions", "badges", "routine_runs"]
 
 
 class LocalStore:
