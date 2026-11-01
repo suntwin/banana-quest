@@ -277,8 +277,46 @@ def _tips():
 
 
 # ---------------------------------------------------------------- settings
+def _streak_admin(sett):
+    kid = data.fresh_child()
+    stk = data.streak_of(data.activities(kid["id"]), sett)
+    cfg = data.streak_cfg(sett)
+    st.markdown("#### 🛡️ Streak, shields & rest days")
+    st.markdown(f'Streak now **{stk["current"]}** (best {stk["best"]}) · shields held **{stk["shields"]}** '
+                f'of {cfg["shield_max"]} · one earned every {cfg["shield_every"]} days in a row.')
+    if stk["used"]:
+        st.caption("Shields used on: " + ", ".join(d.strftime("%a %d %b") for d in stk["used"][-5:]))
+    with st.form("rest_day", clear_on_submit=True):
+        st.markdown("**Add a rest day / fix the streak.** A rest day never breaks the streak: use it for sick "
+                    "days, holidays, or a day the app let him down.")
+        c1, c2 = st.columns([1, 2])
+        day = c1.date_input("Day", value=g.today() - __import__("datetime").timedelta(days=1),
+                            max_value=g.today() + __import__("datetime").timedelta(days=30), format="DD/MM/YYYY")
+        why = c2.text_input("Why (optional)", placeholder="Sick / holiday / app problem")
+        if st.form_submit_button("🩹 Add rest day", use_container_width=True):
+            data.add_rest_day(day, why)
+            st.rerun()
+    rd = data.rest_days(sett)
+    for r in rd[:10]:
+        c1, c2 = st.columns([5, 1])
+        c1.markdown(f'🛌 {esc(r["day"])}' + (f' · {esc(r["why"])}' if r.get("why") else ""))
+        if c2.button("Remove", key=f"rd_{r['day']}", type="tertiary", use_container_width=True):
+            data.remove_rest_day(r["day"])
+            st.rerun()
+    with st.form("shield_cfg"):
+        a, b = st.columns(2)
+        every = a.number_input("Earn a shield every … days in a row", min_value=0, max_value=60,
+                               value=cfg["shield_every"], help="0 switches shields off")
+        mx = b.number_input("Most shields he can hold", min_value=0, max_value=10, value=cfg["shield_max"])
+        if st.form_submit_button("Save shield rules", use_container_width=True):
+            data.save_settings({"streak": {"shield_every": int(every), "shield_max": int(mx)}})
+            st.success("Saved ✅")
+    st.divider()
+
+
 def _settings():
     sett = data.settings()
+    _streak_admin(sett)
     with st.form("settings"):
         st.markdown("#### Approval")
         appr = st.radio("When Aadiv logs something...", ["parent", "auto"],

@@ -97,7 +97,35 @@ def stats(uid=None) -> dict:
     acts = activities(uid)
     w = wallet(uid)
     return {"activities": acts, "wallet": w, "level": g.level_for(w["earned"]),
-            "streak": g.streak(acts)}
+            "streak": streak_of(acts)}
+
+
+# ---------------------------------------------------------------- streak shields & rest days
+def streak_cfg(sett=None) -> dict:
+    sett = sett or settings()
+    c = {**g.DEFAULT_STREAK, **(sett.get("streak") or {})}
+    return {"shield_every": int(c["shield_every"]), "shield_max": int(c["shield_max"])}
+
+
+def rest_days(sett=None) -> list[dict]:
+    sett = sett or settings()
+    out = [r if isinstance(r, dict) else {"day": str(r), "why": ""} for r in (sett.get("rest_days") or [])]
+    return sorted(out, key=lambda r: str(r.get("day")), reverse=True)
+
+
+def streak_of(acts, sett=None) -> dict:
+    sett = sett or settings()
+    return g.streak(acts, rest_days(sett), **streak_cfg(sett))
+
+
+def add_rest_day(day, why: str = ""):
+    days = [r for r in rest_days() if str(r["day"]) != str(day)]
+    days.append({"day": str(day), "why": why.strip()})
+    save_settings({"rest_days": sorted(days, key=lambda r: r["day"])})
+
+
+def remove_rest_day(day):
+    save_settings({"rest_days": [r for r in rest_days() if str(r["day"]) != str(day)]})
 
 
 # ---------------------------------------------------------------- XP writes
@@ -185,7 +213,10 @@ def award_badges(uid) -> list[str]:
                         for p in g.week_progress(acts, sett["goals"], wk, approved_only=True).values())
                     for wk in weeks)
     from . import routine
+    _sett = settings()
+    _stk = streak_of(acts, _sett)
     ctx = {"activities": acts, "redemptions": redemptions(uid), "balance": w["balance"],
+           "rest_days": rest_days(_sett), "streak_cfg": streak_cfg(_sett), "shield_used": bool(_stk["used"]),
            "all_goals_week": all_goals, **routine.badge_ctx(uid, acts)}
     have = badges(uid)
     new = [k for k in g.earned_badges(ctx) if k not in have]

@@ -105,7 +105,8 @@ DEFAULT_TIPS = [
 ]
 ACTIVITY_ORDER = ["basketball", "tennis", "swimming", "maths", "writing"]
 DEFAULT_SETTINGS = {"rules": DEFAULT_RULES, "goals": DEFAULT_GOALS, "screen": DEFAULT_SCREEN,
-                    "approval": "parent", "tips": DEFAULT_TIPS}
+                    "approval": "parent", "tips": DEFAULT_TIPS,
+                    "streak": {"shield_every": 7, "shield_max": 2}, "rest_days": []}
 
 
 def active_kinds(sett: dict) -> list[str]:
@@ -310,22 +311,51 @@ def calc_xp(kind: str, session_type: str, minutes: int, effort: int, det: dict,
 
 
 # ---------------------------------------------------------------- streak & weekly goals
-def streak(activities: list[dict]) -> dict:
-    days = sorted({to_date(a.get("day")) for a in activities if a.get("status") != "rejected"} - {None})
-    best = run = 0
-    prev = None
-    for d in days:
-        run = run + 1 if prev and (d - prev).days == 1 else 1
+DEFAULT_STREAK = {"shield_every": 7, "shield_max": 2}
+
+
+def streak(activities: list[dict], rest_days=None, shield_every: int = 7, shield_max: int = 2) -> dict:
+    """Day streak with 🛡️ streak shields and parent-marked rest days.
+
+    - Every `shield_every` active days in a row earns a shield (he can hold `shield_max`).
+    - A missed day uses a shield automatically instead of breaking the streak
+      (the streak number is kept, it just doesn't go up that day).
+    - Rest days (sick, holiday, or a 'fix' by Papa) are skipped: they neither break nor add.
+    - Today never counts as missed until it's over.
+    """
+    days = {to_date(a.get("day")) for a in activities if a.get("status") != "rejected"} - {None}
+    rest = {to_date(r.get("day") if isinstance(r, dict) else r) for r in (rest_days or [])} - {None}
+    t = today()
+    out = {"current": 0, "best": 0, "days": len(days), "shields": 0, "used": [], "rested": [],
+           "next_shield_in": shield_every, "shield_every": shield_every, "shield_max": shield_max}
+    if not days:
+        return out
+    run = best = shields = since = 0
+    used, rested = [], []
+    d = min(days)
+    while d <= t:
+        if d in days:
+            run += 1
+            since += 1
+            if shield_every and since >= shield_every:
+                since = 0
+                shields = min(shields + 1, shield_max)
+        elif d in rest:
+            if run:
+                rested.append(d)
+        elif d == t:
+            pass                                  # today isn't over yet
+        elif shields > 0 and run > 0:
+            shields -= 1                          # 🛡️ saved the streak
+            used.append(d)
+        else:
+            run = since = 0
+            used, rested = [], []                 # only report saves that kept the current streak alive
         best = max(best, run)
-        prev = d
-    cur = 0
-    if days and (today() - days[-1]).days <= 1:
-        s = set(days)
-        d = days[-1]
-        while d in s:
-            cur += 1
-            d -= timedelta(days=1)
-    return {"current": cur, "best": best, "days": len(days)}
+        d += timedelta(days=1)
+    out.update({"current": run, "best": best, "shields": shields, "used": used, "rested": rested,
+                "next_shield_in": (shield_every - since) if shields < shield_max else 0})
+    return out
 
 
 def week_progress(activities: list[dict], goals: dict, wk: date | None = None,
@@ -359,6 +389,7 @@ BADGES = [
     ("streak3", "🔥", "On Fire", "Active 3 days in a row"),
     ("streak7", "🌋", "Volcano", "Active 7 days in a row"),
     ("streak14", "☄️", "Unstoppable", "Active 14 days in a row"),
+    ("shield_saved", "🛡️", "Saved by the Shield", "A streak shield saved your streak"),
     ("sharpshooter", "🎯", "Sharpshooter", "10+ free throws made in one session"),
     ("ten_points", "🔟", "Double Digits", "Score 10+ points in a basketball game"),
     ("match_winner", "🏆", "Match Winner", "Win a tennis match"),
@@ -385,6 +416,8 @@ BADGE_MAP = {k: (ic, name, desc) for k, ic, name, desc in BADGES}
 def earned_badges(ctx: dict) -> list[str]:
     acts = [a for a in ctx["activities"] if a.get("status") == "approved"]
     got = []
+    if ctx.get("shield_used"):
+        got.append("shield_saved")
     kinds = {a["kind"] for a in acts}
     if "basketball" in kinds:
         got.append("first_bounce")
@@ -399,7 +432,7 @@ def earned_badges(ctx: dict) -> list[str]:
             weeks.setdefault(week_start(d), set()).add(a["kind"])
     if any(len(v) == 3 for v in weeks.values()):
         got.append("triple_threat")
-    s = streak(acts)
+    s = streak(acts, ctx.get("rest_days"), **ctx.get("streak_cfg", {}))
     for n, k in ((3, "streak3"), (7, "streak7"), (14, "streak14")):
         if s["best"] >= n:
             got.append(k)

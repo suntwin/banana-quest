@@ -40,10 +40,12 @@ def render():
         '<div class="ar-stat">'
         f'<div class="box money"><div class="big">🍌 {w["balance"]}</div><div class="lbl">XP to spend</div></div>'
         f'<div class="box"><div class="big">⏳ {w["pending"]}</div><div class="lbl">XP waiting for Papa</div></div>'
-        f'<div class="box"><div class="big">{fire} {stk["current"]}</div><div class="lbl">day streak · best {stk["best"]}</div></div>'
+        f'<div class="box"><div class="big">{fire} {stk["current"]}</div><div class="lbl">day streak · best {stk["best"]}'
+        f'<br>{"🛡️" * stk.get("shields", 0) or "no"} shield{"" if stk.get("shields", 0) == 1 else "s"}</div></div>'
         f'<div class="box"><div class="big">📺 {scr["left"]}</div><div class="lbl">screen min left today</div></div>'
         '</div>', unsafe_allow_html=True)
     st.write("")
+    _streak_news(stk)
 
     left, right = st.columns([1.35, 1])
     with left:
@@ -86,6 +88,21 @@ def render():
             style.card(f'<div class="ar-title" style="font-size:1.15rem">💡 Coach\'s tip</div>'
                        f'<div style="margin-top:6px;font-weight:700">{esc(tip)}</div>', "ar-card ar-tip")
         _recent(s["activities"])
+
+
+def _streak_news(stk):
+    """Tell him when a shield saved his streak, or how close the next shield is."""
+    yday = g.today() - __import__("datetime").timedelta(days=1)
+    recent = [d for d in stk.get("used", []) if (g.today() - d).days <= 3]
+    if recent:
+        when = "yesterday" if recent[-1] == yday else recent[-1].strftime("on %a %d %b")
+        style.card(f'<div class="ar-title" style="font-size:1.15rem">🛡️ Phew! A streak shield saved your '
+                   f'{stk["current"]}-day streak {when}.</div><div class="ar-small">Keep going to earn another one '
+                   f'(every {stk["shield_every"]} days in a row).</div>', "ar-card ar-tip")
+    elif stk.get("current") and stk.get("next_shield_in"):
+        n = stk["next_shield_in"]
+        style.card(f'<div class="ar-small" style="font-weight:800">🛡️ {n} more day{"s" if n != 1 else ""} in a row '
+                   f'to earn a streak shield. A shield saves your streak if you miss a day.</div>')
 
 
 def _goal_card(kid, w):
