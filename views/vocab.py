@@ -113,11 +113,16 @@ def render():
 
 # ---------------------------------------------------------------------- ✨ today
 def _build_session(plan: dict, wm: dict) -> dict:
-    items = [{"kind": "review", "wid": wid, "mode": vb.mode_for(plan["prog"][wid], wm[wid])}
-             for wid in plan["due"] if wid in wm]
-    for wid in plan["new"]:
-        items += [{"kind": "learn", "wid": wid}, {"kind": "check", "wid": wid, "mode": "meaning"}]
-    if plan["new"]:
+    """Study all of today's new words on one page first, then one shuffled quiz (new-word checks mixed
+    with today's reviews), then a shuffled bonus round in a different style. Wrong answers come back at the end."""
+    new = [wid for wid in plan["new"] if wid in wm]
+    items = [{"kind": "study", "wid": new[0], "wids": new}] if new else []
+    quiz = [{"kind": "review", "wid": wid, "mode": vb.mode_for(plan["prog"][wid], wm[wid])}
+            for wid in plan["due"] if wid in wm]
+    quiz += [{"kind": "check", "wid": wid, "mode": "meaning"} for wid in new]
+    vb._seed("quiz", g.today()).shuffle(quiz)
+    items += quiz
+    if new:
         wrap = list(plan["new"])
         vb._seed("wrap", g.today()).shuffle(wrap)
         items += [{"kind": "wrap", "wid": wid, "mode": "reverse"} for wid in wrap]
@@ -149,8 +154,8 @@ def _today(wm: dict, plan: dict):
         mins = max(3, round((n_due * 12 + n_new * 45) / 60))
         style.card(f'<div class="ar-title" style="font-size:1.45rem">Today\'s words</div>'
                    f'<div style="margin-top:6px;font-size:1.15rem">{" &nbsp;+&nbsp; ".join(bits)}</div>'
-                   f'<div class="ar-small" style="margin-top:4px">About {mins} minutes · it counts for your streak '
-                   f'and unlocks screen time 📺</div>')
+                   f'<div class="ar-small" style="margin-top:4px">About {mins} minutes · study all your new words first, '
+                   f'then a shuffled quiz · it counts for your streak and unlocks screen time 📺</div>')
         if st.button("Let's go! 🍌", use_container_width=True, key="aw_start"):
             st.session_state.aw = _build_session(plan, wm)
             st.rerun()
@@ -169,9 +174,12 @@ def _play(vs, wm, prog):
         vs["i"] += 1
         st.rerun()
     step = {"review": "🔁 Remember it?", "learn": "✨ New word", "check": "✨ Quick check", "wrap": "🎁 Bonus round",
-            "retry": "🔄 One more try"}[it["kind"]]
+            "retry": "🔄 One more try", "study": "📚 Study time"}[it["kind"]]
     st.markdown(f'<div class="ar-small">{step} · {vs["i"] + 1} of {len(items)}</div>', unsafe_allow_html=True)
     st.markdown(style.bar(vs["i"] / max(1, len(items)), "den"), unsafe_allow_html=True)
+    if it["kind"] == "study":
+        _study(vs, wm, it)
+        return
     if it["kind"] == "learn":
         style.card(word_card(w))
         speak(_say(w), key=f"aw_say_{vs['i']}")
@@ -184,6 +192,29 @@ def _play(vs, wm, prog):
         _ask(vs, it, w, q, prog)
     else:
         _feedback(vs, it, w, q, vs["ans"])
+
+
+def _study(vs, wm, it):
+    """All of today's new words on one page: read, say, remember. Then the shuffled quiz."""
+    ws = [wm[x] for x in it.get("wids", []) if x in wm]
+    n = len(ws)
+    style.card(f'<div class="ar-title" style="font-size:1.4rem">📚 Study your {n} new word{"s" if n != 1 else ""}</div>'
+               f'<div style="margin-top:4px;font-weight:700">Read each word, its meaning and the example. '
+               f'Say them out loud. When you think you know them all, start the quiz. '
+               f'The questions come in a <b>random order</b>, mixed with words from earlier days!</div>')
+    names = " · ".join(esc(w["word"]) for w in ws)
+    st.markdown(f'<div class="ar-small" style="margin:4px 0 10px">Today: <b>{names}</b></div>', unsafe_allow_html=True)
+    cols = st.columns(2)
+    for k, w in enumerate(ws):
+        with cols[k % 2]:
+            style.card(f'<div class="ar-small">{k + 1} of {n}</div>' + word_card(w, big=False))
+            speak(_say(w), key=f'aw_study_say_{k}')
+    st.write("")
+    if st.button("I've studied them all. Quiz me! 🎯", use_container_width=True, key="aw_study_go"):
+        vs["i"] += 1
+        vs["ans"] = None
+        st.rerun()
+    st.caption("No rush. The quiz only starts when you press the button.")
 
 
 def _ask(vs, it, w, q, prog):
