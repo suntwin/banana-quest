@@ -77,15 +77,36 @@ class SupabaseStore:
             pass
 
     # --- tables ---
-    def select(self, table, eq=None, order=None, desc=False, limit=None):
+    def select(self, table, eq=None, order=None, desc=False, limit=None, gte=None):
         q = self._t(table).select("*")
         for k, v in (eq or {}).items():
             q = q.eq(k, v)
+        for k, v in (gte or {}).items():
+            q = q.gte(k, v)
         if order:
             q = q.order(order, desc=desc)
         if limit:
             q = q.limit(limit)
         return q.execute().data or []
+
+    def select_all(self, table, eq=None, order=None, gte=None, page=1000):
+        """Every matching row (Supabase returns at most 1,000 per request, so read in pages)."""
+        out, start = [], 0
+        while True:
+            q = self._t(table).select("*")
+            for k, v in (eq or {}).items():
+                q = q.eq(k, v)
+            for k, v in (gte or {}).items():
+                q = q.gte(k, v)
+            rows = q.order(order or "created_at").range(start, start + page - 1).execute().data or []
+            out += rows
+            if len(rows) < page:
+                return out
+            start += page
+
+    def upsert_many(self, table, rows, on_conflict, chunk=200):
+        for i in range(0, len(rows), chunk):
+            self._t(table).upsert(rows[i:i + chunk], on_conflict=on_conflict).execute()
 
     def insert(self, table, row):
         res = self._t(table).insert(row).execute()
@@ -112,9 +133,9 @@ class SupabaseStore:
 # Local JSON backend (demo / offline testing)
 # ----------------------------------------------------------------------------
 _LOCK = threading.Lock()
-_ID_TABLES = {"families", "activities", "xp_events", "rewards", "redemptions", "routine_runs"}
+_ID_TABLES = {"families", "activities", "xp_events", "rewards", "redemptions", "routine_runs", "vocab_reviews"}
 TABLES = ["families", "profiles", "settings", "activities", "xp_events", "rewards",
-          "redemptions", "badges", "routine_runs"]
+          "redemptions", "badges", "routine_runs", "vocab_words", "vocab_progress", "vocab_reviews"]
 
 
 class LocalStore:
@@ -141,6 +162,10 @@ class LocalStore:
         for r in DEFAULT_REWARDS:
             data["rewards"].append({"id": str(uuid.uuid4()), "family_id": fam, "active": True,
                                     "created_at": now_iso(), **r})
+        from .vocab import bank_rows, bundled_bank      # Banana Words list (Parent Hub loads it on the live app)
+        bank = bundled_bank()
+        if bank:
+            data["vocab_words"] += bank_rows(bank, fam)
         return data
 
     def _read(self):
@@ -178,11 +203,31 @@ class LocalStore:
     def _match(row, eq):
         return all(row.get(k) == v for k, v in (eq or {}).items())
 
-    def select(self, table, eq=None, order=None, desc=False, limit=None):
-        rows = [r for r in self._read().get(table, []) if self._match(r, eq)]
+    def select(self, table, eq=None, order=None, desc=False, limit=None, gte=None):
+        rows = [r for r in self._read().get(table, []) if self._match(r, eq)
+                and all(str(r.get(k) or "") >= str(v) for k, v in (gte or {}).items())]
         if order:
             rows.sort(key=lambda r: (r.get(order) is None, str(r.get(order))), reverse=desc)
         return rows[:limit] if limit else rows
+
+    def select_all(self, table, eq=None, order=None, gte=None, page=1000):
+        return self.select(table, eq=eq, order=order, gte=gte)
+
+    def upsert_many(self, table, rows, on_conflict, chunk=200):
+        keys = [k.strip() for k in on_conflict.split(",")]
+        data = self._read()
+        tab = data.setdefault(table, [])
+        index = {tuple(r.get(k) for k in keys): r for r in tab}
+        for row in rows:
+            hit = index.get(tuple(row.get(k) for k in keys))
+            if hit is not None:
+                hit.update(row)
+            else:
+                row = dict(row)
+                row.setdefault("created_at", now_iso())
+                tab.append(row)
+                index[tuple(row.get(k) for k in keys)] = row
+        self._write(data)
 
     def insert(self, table, row):
         data = self._read()

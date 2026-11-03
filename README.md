@@ -33,6 +33,25 @@ Short focused **Maths** and **English** sessions every day (default: 25 min each
 - **Badges:** 🎧 Focus Mode (first full session), 📅 Daily Dynamo (7 complete days in a row), 🗓️ Routine Rockstar (a full week), 🧠 Brain Builder (50 full sessions).
 - **One-time setup:** run `supabase/002_routine.sql` in Supabase → SQL Editor (creates `ar_routine_runs`, which keeps a running timer through a reload or a sleeping tablet). The plan lives in `ar_settings`; finished sessions are normal `ar_activities` rows (kind `maths` / `english`). Code: `ar/routine.py`, `views/routine.py`.
 
+## 🔤 Banana Words (added 2026-11-02)
+
+A few new words every day, with reviews that come back and get harder. It's the same engine as Siyonah's Word Power in Selective Brain, sized for Year 2–4.
+
+- **Word list:** `vocab/vocab_bank_aadiv_2026-11-02.json`. 640 "Tier 2" words written by Claude: 220 at Year 2, 240 at Year 3 and 180 at a Year 4 stretch level, introduced in that order. Each word has a simple meaning (12 words max), an example sentence from a kid's world, easy same/opposite words and a memory trick.
+- **Load it once:** run `supabase/003_vocab.sql`, then go to Parent Hub → 🔤 Words → **Load the word list**. Reloading keeps his progress.
+- **His session (5–7 min):**
+  - Words due today come first, then **5 new words** (a card with a 🔊 read-aloud button, then a quick check), then a bonus round.
+  - Questions have 3 choices.
+  - A wrong answer comes back once at the end.
+  - Fewer new words are given when 25+ (3 new) or 40+ (2 new) reviews are due.
+- **Stages:** 1 meaning → 2 which word → 3 fill the gap → 4 same/opposite → 5 spell it (with 🔊 hear the word) → 6 mastered. Gaps are 1/3/7/14/30/60 days. A wrong answer goes back to stage 1, and 3 slips make it a 🧩 tricky word.
+- **🏆 Weekly test:** 10 questions, opens every 7 days once he has met 15 words.
+- **Counts as activity:** finishing today's words writes an approved `words` activity. That keeps his streak and unlocks screen time, like any other activity.
+- **XP:** new word 2, remembered 1, spelled 2, bonus round 1, today's words done 10, weekly test 15 + 1 per right answer.
+- **Badges:** 🔤 Word Explorer, 📖 Word Collector (50), 🪄 Word Wizard Jr (200), 🏅 Word Champion (50 mastered), 🍌 Word Streak (7 days).
+- **Parent Hub → 🔤 Words:** words met, mastered, tricky, % right, word streak, finish date, last 14 days, where he slips. Settings: new words per day (2–12), reload the list, and **Reset Banana Words**.
+- **Code:** `ar/vocab.py` (engine) and `views/vocab.py` (pages). `ar/store.py` gained `select_all` (paged; Supabase returns 1,000 rows max), `upsert_many` and a `gte` filter.
+
 ## One-time setup (about 15 minutes)
 
 ### 1. Supabase (reuse the Selective Brain project)

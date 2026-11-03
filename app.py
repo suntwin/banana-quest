@@ -114,13 +114,14 @@ if "profile" not in st.session_state or not st.session_state.profile:
     login()
     st.stop()
 
-from views import home, log, parent, routine, shop, tables, trophies  # noqa: E402
+from views import home, log, parent, routine, shop, tables, trophies, vocab  # noqa: E402
 
 prof = st.session_state.profile
 if prof["role"] == "child":
     pages = [
         st.Page(home.render, title="Home", icon="🏠", url_path="home", default=True),
         st.Page(routine.render, title="Daily Routine", icon="⏱️", url_path="routine"),
+        st.Page(vocab.render, title="Banana Words", icon="🔤", url_path="words"),
         st.Page(log.render, title="Log it!", icon="➕", url_path="log"),
         st.Page(tables.render, title="Times Tables", icon="✖️", url_path="tables"),
         st.Page(shop.render, title="Reward Shop", icon="🎁", url_path="shop"),
@@ -131,6 +132,7 @@ else:
         st.Page(parent.render, title="Parent Hub", icon="🧭", url_path="parent", default=True),
         st.Page(home.render, title="Aadiv's Home", icon="🏠", url_path="home"),
         st.Page(routine.render, title="His Routine", icon="⏱️", url_path="routine"),
+        st.Page(vocab.render, title="His Words", icon="🔤", url_path="words"),
         st.Page(tables.render, title="Times Tables", icon="✖️", url_path="tables"),
         st.Page(shop.render, title="Reward Shop", icon="🎁", url_path="shop"),
         st.Page(trophies.render, title="Trophy Room", icon="🏆", url_path="trophies"),

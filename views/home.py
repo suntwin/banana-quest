@@ -81,6 +81,8 @@ def render():
     with right:
         from views import routine as _rq
         _rq.home_card(kid, is_child)
+        from views import vocab as _vq
+        _vq.home_card(kid, is_child)
         _goal_card(kid, w)
         tips = data.tips()
         if tips:

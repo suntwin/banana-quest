@@ -51,6 +51,7 @@ OTHER = {
     "writing": {"name": "English writing", "icon": "✍️", "area": "writing"},
     "tables": {"name": "Times tables", "icon": "✖️", "area": "maths"},
     "english": {"name": "English", "icon": "📖", "area": "writing"},   # daily routine sessions (reading, spelling…)
+    "words": {"name": "Banana Words", "icon": "🔤", "area": "writing"},  # today's vocabulary session done
 }
 KINDS = {**SPORTS, **OTHER}
 MATHS_TOPICS = ["Times tables", "Mental maths", "Fractions & decimals", "Problem solving",
@@ -409,6 +410,11 @@ BADGES = [
     ("routine_day7", "📅", "Daily Dynamo", "Whole routine done 7 days in a row"),
     ("routine_week", "🗓️", "Routine Rockstar", "Every routine session in a whole week"),
     ("focus_50", "🧠", "Brain Builder", "50 full routine sessions"),
+    ("words_first", "🔤", "Word Explorer", "Finish your first day of Banana Words"),
+    ("words_50", "📖", "Word Collector", "50 words past their first check"),
+    ("words_200", "🪄", "Word Wizard Jr", "200 words past their first check"),
+    ("words_master_50", "🏅", "Word Champion", "50 words mastered"),
+    ("words_streak_7", "🍌", "Word Streak", "Banana Words 7 days in a row"),
 ]
 BADGE_MAP = {k: (ic, name, desc) for k, ic, name, desc in BADGES}
 
@@ -477,4 +483,14 @@ def earned_badges(ctx: dict) -> list[str]:
         got.append("routine_day7")
     if ctx.get("routine_weeks", 0) >= 1:
         got.append("routine_week")
+    if any(a["kind"] == "words" for a in acts):
+        got.append("words_first")
+    if ctx.get("words_learned", 0) >= 50:
+        got.append("words_50")
+    if ctx.get("words_learned", 0) >= 200:
+        got.append("words_200")
+    if ctx.get("words_mastered", 0) >= 50:
+        got.append("words_master_50")
+    if ctx.get("words_streak", 0) >= 7:
+        got.append("words_streak_7")
     return got

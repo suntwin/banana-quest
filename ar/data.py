@@ -204,6 +204,15 @@ def manual_bonus(amount: int, reason: str):
     award_badges(kid["id"])
 
 
+def _vocab_ctx(uid) -> dict:
+    """Banana Words badge counts (zeros until 003_vocab.sql is run)."""
+    try:
+        from . import vocab
+        return vocab.badge_ctx(uid)
+    except Exception:
+        return {}
+
+
 def award_badges(uid) -> list[str]:
     acts = activities(uid)
     sett = settings()
@@ -217,7 +226,7 @@ def award_badges(uid) -> list[str]:
     _stk = streak_of(acts, _sett)
     ctx = {"activities": acts, "redemptions": redemptions(uid), "balance": w["balance"],
            "rest_days": rest_days(_sett), "streak_cfg": streak_cfg(_sett), "shield_used": bool(_stk["used"]),
-           "all_goals_week": all_goals, **routine.badge_ctx(uid, acts)}
+           "all_goals_week": all_goals, **routine.badge_ctx(uid, acts), **_vocab_ctx(uid)}
     have = badges(uid)
     new = [k for k in g.earned_badges(ctx) if k not in have]
     for k in new:
@@ -413,6 +422,11 @@ def reset_child_data():
         store().delete("routine_runs", {"user_id": uid})
     except Exception:
         pass
+    for t in ("vocab_progress", "vocab_reviews"):   # Banana Words (skip quietly if 003_vocab.sql isn't run)
+        try:
+            store().delete(t, {"user_id": uid})
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------- times tables
